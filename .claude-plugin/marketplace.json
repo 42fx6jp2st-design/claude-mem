@@ -1,11 +1,11 @@
 {
-  "name": "thedotmack",
+  "name": "hm-consulting",
   "owner": {
-    "name": "Alex Newman"
+    "name": "HM Consulting"
   },
   "metadata": {
-    "description": "Plugins by Alex Newman (thedotmack)",
-    "homepage": "https://github.com/thedotmack/claude-mem"
+    "description": "Plugins by HM Consulting",
+    "homepage": "https://github.com/hm-consulting/claude-mem"
   },
   "plugins": [
     {

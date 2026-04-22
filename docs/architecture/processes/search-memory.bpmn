@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  id="Definitions_SearchMemory"
+                  targetNamespace="https://claude-mem.ai/bpmn">
+  <bpmn:process id="Process_SearchMemory" name="mem-search skill: recall past work" isExecutable="false">
+    <bpmn:documentation>
+      3-layer mem-search workflow: search index → timeline window → full fetch.
+      Uses SearchManager in the worker, which performs hybrid SQL (keyword) + Chroma (semantic) search.
+    </bpmn:documentation>
+
+    <bpmn:startEvent id="S_Ask" name="User asks a&#10;recall question&#10;(How did we X?)"/>
+    <bpmn:task id="S_SkillInvoke" name="mem-search skill&#10;auto-invoked by Claude"/>
+    <bpmn:task id="S_ApiSearch" name="HTTP GET&#10;/api/search&#10;?query=X&amp;limit=N"/>
+    <bpmn:parallelGateway id="S_Fork"/>
+    <bpmn:task id="S_SQL" name="SearchManager&#10;SQL keyword search&#10;(SQLite FTS)"/>
+    <bpmn:task id="S_Chroma" name="SearchManager&#10;semantic search&#10;(Chroma embeddings)"/>
+    <bpmn:parallelGateway id="S_Join"/>
+    <bpmn:task id="S_Rank" name="Hybrid rank&#10;merge + dedupe&#10;return IDs + metadata"/>
+    <bpmn:exclusiveGateway id="S_GW_NeedContext" name="needs timeline&#10;context?"/>
+    <bpmn:task id="S_Timeline" name="HTTP GET&#10;/api/timeline&#10;?anchor=ID&amp;before=N&amp;after=N"/>
+    <bpmn:exclusiveGateway id="S_GW_NeedDetail" name="needs full&#10;observation?"/>
+    <bpmn:task id="S_Fetch" name="HTTP GET&#10;/api/observations/:id&#10;full body + prompts"/>
+    <bpmn:task id="S_Respond" name="Claude synthesizes&#10;answer from&#10;retrieved memories"/>
+    <bpmn:endEvent id="S_End" name="Answer delivered"/>
+
+    <bpmn:sequenceFlow id="fs1" sourceRef="S_Ask" targetRef="S_SkillInvoke"/>
+    <bpmn:sequenceFlow id="fs2" sourceRef="S_SkillInvoke" targetRef="S_ApiSearch"/>
+    <bpmn:sequenceFlow id="fs3" sourceRef="S_ApiSearch" targetRef="S_Fork"/>
+    <bpmn:sequenceFlow id="fs4" sourceRef="S_Fork" targetRef="S_SQL"/>
+    <bpmn:sequenceFlow id="fs5" sourceRef="S_Fork" targetRef="S_Chroma"/>
+    <bpmn:sequenceFlow id="fs6" sourceRef="S_SQL" targetRef="S_Join"/>
+    <bpmn:sequenceFlow id="fs7" sourceRef="S_Chroma" targetRef="S_Join"/>
+    <bpmn:sequenceFlow id="fs8" sourceRef="S_Join" targetRef="S_Rank"/>
+    <bpmn:sequenceFlow id="fs9" sourceRef="S_Rank" targetRef="S_GW_NeedContext"/>
+    <bpmn:sequenceFlow id="fs10" sourceRef="S_GW_NeedContext" targetRef="S_Timeline" name="yes"/>
+    <bpmn:sequenceFlow id="fs11" sourceRef="S_GW_NeedContext" targetRef="S_GW_NeedDetail" name="no"/>
+    <bpmn:sequenceFlow id="fs12" sourceRef="S_Timeline" targetRef="S_GW_NeedDetail"/>
+    <bpmn:sequenceFlow id="fs13" sourceRef="S_GW_NeedDetail" targetRef="S_Fetch" name="yes"/>
+    <bpmn:sequenceFlow id="fs14" sourceRef="S_GW_NeedDetail" targetRef="S_Respond" name="no"/>
+    <bpmn:sequenceFlow id="fs15" sourceRef="S_Fetch" targetRef="S_Respond"/>
+    <bpmn:sequenceFlow id="fs16" sourceRef="S_Respond" targetRef="S_End"/>
+  </bpmn:process>
+
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_SearchMemory">
+      <bpmndi:BPMNShape id="ss1" bpmnElement="S_Ask"><dc:Bounds x="80" y="230" width="36" height="36"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="ss2" bpmnElement="S_SkillInvoke"><dc:Bounds x="160" y="210" width="140" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="ss3" bpmnElement="S_ApiSearch"><dc:Bounds x="330" y="210" width="140" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="ss4" bpmnElement="S_Fork"><dc:Bounds x="500" y="225" width="50" height="50"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="ss5" bpmnElement="S_SQL"><dc:Bounds x="590" y="100" width="140" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="ss6" bpmnElement="S_Chroma"><dc:Bounds x="590" y="320" width="140" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="ss7" bpmnElement="S_Join"><dc:Bounds x="760" y="225" width="50" height="50"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="ss8" bpmnElement="S_Rank"><dc:Bounds x="850" y="210" width="140" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="ss9" bpmnElement="S_GW_NeedContext" isMarkerVisible="true"><dc:Bounds x="1020" y="225" width="50" height="50"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="ss10" bpmnElement="S_Timeline"><dc:Bounds x="1110" y="100" width="140" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="ss11" bpmnElement="S_GW_NeedDetail" isMarkerVisible="true"><dc:Bounds x="1290" y="225" width="50" height="50"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="ss12" bpmnElement="S_Fetch"><dc:Bounds x="1380" y="100" width="140" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="ss13" bpmnElement="S_Respond"><dc:Bounds x="1560" y="210" width="140" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="ss14" bpmnElement="S_End"><dc:Bounds x="1740" y="232" width="36" height="36"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="es1" bpmnElement="fs1"><di:waypoint x="116" y="250"/><di:waypoint x="160" y="250"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="es2" bpmnElement="fs2"><di:waypoint x="300" y="250"/><di:waypoint x="330" y="250"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="es3" bpmnElement="fs3"><di:waypoint x="470" y="250"/><di:waypoint x="500" y="250"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="es4" bpmnElement="fs4"><di:waypoint x="525" y="225"/><di:waypoint x="525" y="140"/><di:waypoint x="590" y="140"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="es5" bpmnElement="fs5"><di:waypoint x="525" y="275"/><di:waypoint x="525" y="360"/><di:waypoint x="590" y="360"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="es6" bpmnElement="fs6"><di:waypoint x="730" y="140"/><di:waypoint x="785" y="140"/><di:waypoint x="785" y="225"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="es7" bpmnElement="fs7"><di:waypoint x="730" y="360"/><di:waypoint x="785" y="360"/><di:waypoint x="785" y="275"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="es8" bpmnElement="fs8"><di:waypoint x="810" y="250"/><di:waypoint x="850" y="250"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="es9" bpmnElement="fs9"><di:waypoint x="990" y="250"/><di:waypoint x="1020" y="250"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="es10" bpmnElement="fs10"><di:waypoint x="1045" y="225"/><di:waypoint x="1045" y="140"/><di:waypoint x="1110" y="140"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="es11" bpmnElement="fs11"><di:waypoint x="1070" y="250"/><di:waypoint x="1290" y="250"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="es12" bpmnElement="fs12"><di:waypoint x="1250" y="140"/><di:waypoint x="1315" y="140"/><di:waypoint x="1315" y="225"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="es13" bpmnElement="fs13"><di:waypoint x="1315" y="225"/><di:waypoint x="1315" y="140"/><di:waypoint x="1380" y="140"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="es14" bpmnElement="fs14"><di:waypoint x="1340" y="250"/><di:waypoint x="1560" y="250"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="es15" bpmnElement="fs15"><di:waypoint x="1520" y="140"/><di:waypoint x="1630" y="140"/><di:waypoint x="1630" y="210"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="es16" bpmnElement="fs16"><di:waypoint x="1700" y="250"/><di:waypoint x="1740" y="250"/></bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

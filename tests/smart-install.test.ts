@@ -42,7 +42,7 @@ describe('smart-install resolveRoot logic', () => {
   });
 
   it('should prefer CLAUDE_PLUGIN_ROOT when it contains package.json', () => {
-    const cacheDir = createDir('cache/thedotmack/claude-mem/10.0.0');
+    const cacheDir = createDir('cache/hm-consulting/claude-mem/10.0.0');
     createPackageJson(cacheDir);
 
     // Simulate what resolveRoot does
@@ -51,8 +51,8 @@ describe('smart-install resolveRoot logic', () => {
   });
 
   it('should detect cache-based install paths', () => {
-    // Cache installs have paths like ~/.claude/plugins/cache/thedotmack/claude-mem/<version>/
-    const cacheDir = createDir('plugins/cache/thedotmack/claude-mem/10.3.0');
+    // Cache installs have paths like ~/.claude/plugins/cache/hm-consulting/claude-mem/<version>/
+    const cacheDir = createDir('plugins/cache/hm-consulting/claude-mem/10.3.0');
     createPackageJson(cacheDir);
 
     // Marketplace dir does NOT exist (fresh cache install, no marketplace)
@@ -212,7 +212,7 @@ describe('smart-install stdout JSON output (#1253)', () => {
     const settingsFile = join(settingsDir, 'settings.json');
     mkdirSync(settingsDir, { recursive: true });
     writeFileSync(settingsFile, JSON.stringify({
-      enabledPlugins: { 'claude-mem@thedotmack': false }
+      enabledPlugins: { 'claude-mem@hm-consulting': false }
     }));
 
     try {

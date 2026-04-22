@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  id="Definitions_InstallUninstall"
+                  targetNamespace="https://claude-mem.ai/bpmn">
+  <bpmn:collaboration id="Collab_InstallUninstall">
+    <bpmn:participant id="Pool_Install" name="Install" processRef="Process_Install"/>
+    <bpmn:participant id="Pool_Uninstall" name="Uninstall" processRef="Process_Uninstall"/>
+  </bpmn:collaboration>
+
+  <bpmn:process id="Process_Install" name="npx claude-mem install" isExecutable="false">
+    <bpmn:documentation>
+      User runs `npx claude-mem install`. src/npx-cli/commands/install.ts detects IDE, copies artifact,
+      runs smart-install for Bun + uv, and registers hooks in the appropriate config.
+    </bpmn:documentation>
+    <bpmn:startEvent id="I_Start" name="User runs&#10;npx claude-mem install"/>
+    <bpmn:task id="I_Detect" name="ide-detection.ts&#10;detect IDE&#10;(Claude / Cursor / etc.)"/>
+    <bpmn:exclusiveGateway id="I_GW_IDE" name="which IDE?"/>
+    <bpmn:task id="I_CopyPlugin" name="Copy plugin/ to&#10;~/.claude/plugins/&#10;marketplaces/hm-consulting/"/>
+    <bpmn:task id="I_CursorInstaller" name="CursorHooksInstaller&#10;write .cursor/hooks.json&#10;+ mcp.json + rules.mdc"/>
+    <bpmn:task id="I_OtherInstaller" name="Windsurf / Gemini /&#10;OpenCode / Codex&#10;installer"/>
+    <bpmn:task id="I_SmartInstall" name="smart-install.js&#10;check Bun&#10;check uv"/>
+    <bpmn:exclusiveGateway id="I_GW_Deps" name="deps missing?"/>
+    <bpmn:task id="I_InstallBun" name="Auto-install Bun&#10;(bash curl, not admin)"/>
+    <bpmn:task id="I_InstallUv" name="Auto-install uv&#10;(for Python/Chroma)"/>
+    <bpmn:task id="I_Register" name="Register hooks&#10;update manifests&#10;write .install-version"/>
+    <bpmn:task id="I_StartWorker" name="First hook fires&#10;worker daemon starts&#10;on port 37700+uid%100"/>
+    <bpmn:endEvent id="I_End" name="Plugin ready"/>
+
+    <bpmn:sequenceFlow id="i1" sourceRef="I_Start" targetRef="I_Detect"/>
+    <bpmn:sequenceFlow id="i2" sourceRef="I_Detect" targetRef="I_GW_IDE"/>
+    <bpmn:sequenceFlow id="i3" sourceRef="I_GW_IDE" targetRef="I_CopyPlugin" name="Claude Code"/>
+    <bpmn:sequenceFlow id="i4" sourceRef="I_GW_IDE" targetRef="I_CursorInstaller" name="Cursor"/>
+    <bpmn:sequenceFlow id="i5" sourceRef="I_GW_IDE" targetRef="I_OtherInstaller" name="Windsurf/&#10;Gemini/&#10;OpenCode/&#10;Codex"/>
+    <bpmn:sequenceFlow id="i6" sourceRef="I_CopyPlugin" targetRef="I_SmartInstall"/>
+    <bpmn:sequenceFlow id="i7" sourceRef="I_CursorInstaller" targetRef="I_SmartInstall"/>
+    <bpmn:sequenceFlow id="i8" sourceRef="I_OtherInstaller" targetRef="I_SmartInstall"/>
+    <bpmn:sequenceFlow id="i9" sourceRef="I_SmartInstall" targetRef="I_GW_Deps"/>
+    <bpmn:sequenceFlow id="i10" sourceRef="I_GW_Deps" targetRef="I_InstallBun" name="yes"/>
+    <bpmn:sequenceFlow id="i11" sourceRef="I_GW_Deps" targetRef="I_Register" name="no"/>
+    <bpmn:sequenceFlow id="i12" sourceRef="I_InstallBun" targetRef="I_InstallUv"/>
+    <bpmn:sequenceFlow id="i13" sourceRef="I_InstallUv" targetRef="I_Register"/>
+    <bpmn:sequenceFlow id="i14" sourceRef="I_Register" targetRef="I_StartWorker"/>
+    <bpmn:sequenceFlow id="i15" sourceRef="I_StartWorker" targetRef="I_End"/>
+  </bpmn:process>
+
+  <bpmn:process id="Process_Uninstall" name="npx claude-mem uninstall" isExecutable="false">
+    <bpmn:documentation>
+      User runs `npx claude-mem uninstall`. Stops worker, removes plugin files, unregisters hooks.
+      Memory DB at ~/.claude-mem/claude-mem.db is preserved (user deletes manually).
+    </bpmn:documentation>
+    <bpmn:startEvent id="U_Start" name="User runs&#10;npx claude-mem uninstall"/>
+    <bpmn:task id="U_StopWorker" name="Stop worker daemon&#10;SIGTERM graceful"/>
+    <bpmn:task id="U_RemoveHooks" name="Remove hooks from&#10;IDE config(s)"/>
+    <bpmn:task id="U_RemovePlugin" name="Delete plugin/ from&#10;marketplace path"/>
+    <bpmn:task id="U_KeepData" name="Preserve&#10;~/.claude-mem/ data&#10;(user decision)"/>
+    <bpmn:endEvent id="U_End" name="Plugin removed"/>
+
+    <bpmn:sequenceFlow id="u1" sourceRef="U_Start" targetRef="U_StopWorker"/>
+    <bpmn:sequenceFlow id="u2" sourceRef="U_StopWorker" targetRef="U_RemoveHooks"/>
+    <bpmn:sequenceFlow id="u3" sourceRef="U_RemoveHooks" targetRef="U_RemovePlugin"/>
+    <bpmn:sequenceFlow id="u4" sourceRef="U_RemovePlugin" targetRef="U_KeepData"/>
+    <bpmn:sequenceFlow id="u5" sourceRef="U_KeepData" targetRef="U_End"/>
+  </bpmn:process>
+
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Collab_InstallUninstall">
+      <bpmndi:BPMNShape id="p_Install" bpmnElement="Pool_Install" isHorizontal="true"><dc:Bounds x="120" y="40" width="2000" height="380"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="p_Uninstall" bpmnElement="Pool_Uninstall" isHorizontal="true"><dc:Bounds x="120" y="450" width="2000" height="180"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="x_IStart" bpmnElement="I_Start"><dc:Bounds x="170" y="210" width="36" height="36"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="x_IDetect" bpmnElement="I_Detect"><dc:Bounds x="240" y="190" width="140" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="x_IGWIDE" bpmnElement="I_GW_IDE" isMarkerVisible="true"><dc:Bounds x="410" y="205" width="50" height="50"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="x_ICopy" bpmnElement="I_CopyPlugin"><dc:Bounds x="500" y="90" width="150" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="x_ICursor" bpmnElement="I_CursorInstaller"><dc:Bounds x="500" y="190" width="150" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="x_IOther" bpmnElement="I_OtherInstaller"><dc:Bounds x="500" y="300" width="150" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="x_ISmart" bpmnElement="I_SmartInstall"><dc:Bounds x="700" y="190" width="150" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="x_IGWDeps" bpmnElement="I_GW_Deps" isMarkerVisible="true"><dc:Bounds x="890" y="205" width="50" height="50"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="x_IBun" bpmnElement="I_InstallBun"><dc:Bounds x="980" y="90" width="150" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="x_IUv" bpmnElement="I_InstallUv"><dc:Bounds x="1170" y="90" width="150" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="x_IReg" bpmnElement="I_Register"><dc:Bounds x="1360" y="190" width="150" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="x_IStartW" bpmnElement="I_StartWorker"><dc:Bounds x="1550" y="190" width="150" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="x_IEnd" bpmnElement="I_End"><dc:Bounds x="1750" y="210" width="36" height="36"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="x_UStart" bpmnElement="U_Start"><dc:Bounds x="170" y="530" width="36" height="36"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="x_UStop" bpmnElement="U_StopWorker"><dc:Bounds x="250" y="510" width="140" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="x_URemH" bpmnElement="U_RemoveHooks"><dc:Bounds x="440" y="510" width="140" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="x_URemP" bpmnElement="U_RemovePlugin"><dc:Bounds x="630" y="510" width="140" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="x_UKeep" bpmnElement="U_KeepData"><dc:Bounds x="820" y="510" width="140" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="x_UEnd" bpmnElement="U_End"><dc:Bounds x="1010" y="530" width="36" height="36"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="ei1" bpmnElement="i1"><di:waypoint x="206" y="228"/><di:waypoint x="240" y="230"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="ei2" bpmnElement="i2"><di:waypoint x="380" y="230"/><di:waypoint x="410" y="230"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="ei3" bpmnElement="i3"><di:waypoint x="435" y="205"/><di:waypoint x="435" y="130"/><di:waypoint x="500" y="130"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="ei4" bpmnElement="i4"><di:waypoint x="460" y="230"/><di:waypoint x="500" y="230"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="ei5" bpmnElement="i5"><di:waypoint x="435" y="255"/><di:waypoint x="435" y="340"/><di:waypoint x="500" y="340"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="ei6" bpmnElement="i6"><di:waypoint x="650" y="130"/><di:waypoint x="775" y="130"/><di:waypoint x="775" y="190"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="ei7" bpmnElement="i7"><di:waypoint x="650" y="230"/><di:waypoint x="700" y="230"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="ei8" bpmnElement="i8"><di:waypoint x="650" y="340"/><di:waypoint x="775" y="340"/><di:waypoint x="775" y="270"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="ei9" bpmnElement="i9"><di:waypoint x="850" y="230"/><di:waypoint x="890" y="230"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="ei10" bpmnElement="i10"><di:waypoint x="915" y="205"/><di:waypoint x="915" y="130"/><di:waypoint x="980" y="130"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="ei11" bpmnElement="i11"><di:waypoint x="940" y="230"/><di:waypoint x="1360" y="230"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="ei12" bpmnElement="i12"><di:waypoint x="1130" y="130"/><di:waypoint x="1170" y="130"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="ei13" bpmnElement="i13"><di:waypoint x="1320" y="130"/><di:waypoint x="1435" y="130"/><di:waypoint x="1435" y="190"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="ei14" bpmnElement="i14"><di:waypoint x="1510" y="230"/><di:waypoint x="1550" y="230"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="ei15" bpmnElement="i15"><di:waypoint x="1700" y="230"/><di:waypoint x="1750" y="228"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="eu1" bpmnElement="u1"><di:waypoint x="206" y="548"/><di:waypoint x="250" y="550"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="eu2" bpmnElement="u2"><di:waypoint x="390" y="550"/><di:waypoint x="440" y="550"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="eu3" bpmnElement="u3"><di:waypoint x="580" y="550"/><di:waypoint x="630" y="550"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="eu4" bpmnElement="u4"><di:waypoint x="770" y="550"/><di:waypoint x="820" y="550"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="eu5" bpmnElement="u5"><di:waypoint x="960" y="550"/><di:waypoint x="1010" y="548"/></bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

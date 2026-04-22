@@ -64,10 +64,10 @@ import { detectInstalledIDEs } from './ide-detection.js';
 function registerMarketplace(): void {
   const knownMarketplaces = readJsonSafe<Record<string, any>>(knownMarketplacesPath(), {});
 
-  knownMarketplaces['thedotmack'] = {
+  knownMarketplaces['hm-consulting'] = {
     source: {
       source: 'github',
-      repo: 'thedotmack/claude-mem',
+      repo: 'hm-consulting/claude-mem',
     },
     installLocation: marketplaceDirectory(),
     lastUpdated: new Date().toISOString(),
@@ -87,7 +87,7 @@ function registerPlugin(version: string): void {
   const cachePath = pluginCacheDirectory(version);
   const now = new Date().toISOString();
 
-  installedPlugins.plugins['claude-mem@thedotmack'] = [
+  installedPlugins.plugins['claude-mem@hm-consulting'] = [
     {
       scope: 'user',
       installPath: cachePath,
@@ -104,7 +104,7 @@ function enablePluginInClaudeSettings(): void {
   const settings = readJsonSafe<Record<string, any>>(claudeSettingsPath(), {});
 
   if (!settings.enabledPlugins) settings.enabledPlugins = {};
-  settings.enabledPlugins['claude-mem@thedotmack'] = true;
+  settings.enabledPlugins['claude-mem@hm-consulting'] = true;
 
   writeJsonFileAtomic(claudeSettingsPath(), settings);
 }
@@ -124,7 +124,7 @@ async function setupIDEs(selectedIDEs: string[]): Promise<string[]> {
         // marketplace registration, plugin installation, and enablement.
         try {
           execSync(
-            'claude plugin marketplace add thedotmack/claude-mem && claude plugin install claude-mem',
+            'claude plugin marketplace add hm-consulting/claude-mem && claude plugin install claude-mem',
             { stdio: 'inherit' },
           );
           log.success('Claude Code: plugin installed via CLI.');

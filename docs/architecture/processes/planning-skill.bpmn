@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  id="Definitions_Planning"
+                  targetNamespace="https://claude-mem.ai/bpmn">
+  <bpmn:collaboration id="Collab_Planning">
+    <bpmn:participant id="Pool_MakePlan" name="make-plan skill" processRef="Process_MakePlan"/>
+    <bpmn:participant id="Pool_Do" name="do skill" processRef="Process_Do"/>
+    <bpmn:messageFlow id="mf_handoff" name="plan document + phase context" sourceRef="MP_Deliver" targetRef="DO_ReadPlan"/>
+  </bpmn:collaboration>
+
+  <bpmn:process id="Process_MakePlan" name="make-plan: build phased plan with docs discovery" isExecutable="false">
+    <bpmn:documentation>
+      Orchestrator that deploys subagents to gather docs, examples, and signatures.
+      Phase 0 is ALWAYS documentation discovery. Each subsequent phase is framed as
+      "copy from docs" with a verification checklist.
+    </bpmn:documentation>
+    <bpmn:startEvent id="MP_Start" name="User asks:&#10;plan X"/>
+    <bpmn:task id="MP_Orchestrate" name="Orchestrator analyzes&#10;task + stack"/>
+    <bpmn:task id="MP_Phase0" name="Phase 0: docs&#10;discovery subagents"/>
+    <bpmn:parallelGateway id="MP_Fork"/>
+    <bpmn:task id="MP_FetchDocs" name="Subagent: fetch&#10;official docs"/>
+    <bpmn:task id="MP_FetchExamples" name="Subagent: code&#10;examples"/>
+    <bpmn:task id="MP_FetchSigs" name="Subagent: API&#10;signatures"/>
+    <bpmn:parallelGateway id="MP_Join"/>
+    <bpmn:task id="MP_Synthesize" name="Synthesize phases&#10;1..N with verification&#10;checklists"/>
+    <bpmn:task id="MP_Deliver" name="Deliver plan doc&#10;(markdown)"/>
+    <bpmn:endEvent id="MP_End" name="Plan ready"/>
+
+    <bpmn:sequenceFlow id="p1" sourceRef="MP_Start" targetRef="MP_Orchestrate"/>
+    <bpmn:sequenceFlow id="p2" sourceRef="MP_Orchestrate" targetRef="MP_Phase0"/>
+    <bpmn:sequenceFlow id="p3" sourceRef="MP_Phase0" targetRef="MP_Fork"/>
+    <bpmn:sequenceFlow id="p4" sourceRef="MP_Fork" targetRef="MP_FetchDocs"/>
+    <bpmn:sequenceFlow id="p5" sourceRef="MP_Fork" targetRef="MP_FetchExamples"/>
+    <bpmn:sequenceFlow id="p6" sourceRef="MP_Fork" targetRef="MP_FetchSigs"/>
+    <bpmn:sequenceFlow id="p7" sourceRef="MP_FetchDocs" targetRef="MP_Join"/>
+    <bpmn:sequenceFlow id="p8" sourceRef="MP_FetchExamples" targetRef="MP_Join"/>
+    <bpmn:sequenceFlow id="p9" sourceRef="MP_FetchSigs" targetRef="MP_Join"/>
+    <bpmn:sequenceFlow id="p10" sourceRef="MP_Join" targetRef="MP_Synthesize"/>
+    <bpmn:sequenceFlow id="p11" sourceRef="MP_Synthesize" targetRef="MP_Deliver"/>
+    <bpmn:sequenceFlow id="p12" sourceRef="MP_Deliver" targetRef="MP_End"/>
+  </bpmn:process>
+
+  <bpmn:process id="Process_Do" name="do: execute plan phase by phase" isExecutable="false">
+    <bpmn:documentation>
+      Executes a make-plan output. Spawns a fresh subagent per phase:
+      implementation → verification → anti-pattern check → code review → commit.
+      Advances only if verification passes.
+    </bpmn:documentation>
+    <bpmn:startEvent id="DO_Start" name="User says: do it"/>
+    <bpmn:task id="DO_ReadPlan" name="Read plan doc&#10;extract phase N"/>
+    <bpmn:task id="DO_Impl" name="Subagent: implement&#10;phase N&#10;(copy from docs)"/>
+    <bpmn:task id="DO_Verify" name="Subagent: run&#10;verification checklist"/>
+    <bpmn:exclusiveGateway id="DO_GW_Pass" name="passed?"/>
+    <bpmn:task id="DO_AntiPattern" name="Subagent: anti-pattern&#10;check"/>
+    <bpmn:task id="DO_Review" name="Subagent: code review"/>
+    <bpmn:task id="DO_Commit" name="Subagent: commit&#10;+ branch handoff"/>
+    <bpmn:exclusiveGateway id="DO_GW_More" name="more phases?"/>
+    <bpmn:endEvent id="DO_End" name="All phases done"/>
+    <bpmn:endEvent id="DO_Fail" name="Halt + report"/>
+
+    <bpmn:sequenceFlow id="d1" sourceRef="DO_Start" targetRef="DO_ReadPlan"/>
+    <bpmn:sequenceFlow id="d2" sourceRef="DO_ReadPlan" targetRef="DO_Impl"/>
+    <bpmn:sequenceFlow id="d3" sourceRef="DO_Impl" targetRef="DO_Verify"/>
+    <bpmn:sequenceFlow id="d4" sourceRef="DO_Verify" targetRef="DO_GW_Pass"/>
+    <bpmn:sequenceFlow id="d5" sourceRef="DO_GW_Pass" targetRef="DO_AntiPattern" name="yes"/>
+    <bpmn:sequenceFlow id="d6" sourceRef="DO_GW_Pass" targetRef="DO_Fail" name="no"/>
+    <bpmn:sequenceFlow id="d7" sourceRef="DO_AntiPattern" targetRef="DO_Review"/>
+    <bpmn:sequenceFlow id="d8" sourceRef="DO_Review" targetRef="DO_Commit"/>
+    <bpmn:sequenceFlow id="d9" sourceRef="DO_Commit" targetRef="DO_GW_More"/>
+    <bpmn:sequenceFlow id="d10" sourceRef="DO_GW_More" targetRef="DO_ReadPlan" name="yes&#10;(next phase)"/>
+    <bpmn:sequenceFlow id="d11" sourceRef="DO_GW_More" targetRef="DO_End" name="no"/>
+  </bpmn:process>
+
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Collab_Planning">
+      <bpmndi:BPMNShape id="pp1" bpmnElement="Pool_MakePlan" isHorizontal="true"><dc:Bounds x="100" y="40" width="2000" height="320"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="pp2" bpmnElement="Pool_Do" isHorizontal="true"><dc:Bounds x="100" y="400" width="2000" height="300"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="mps" bpmnElement="MP_Start"><dc:Bounds x="160" y="190" width="36" height="36"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="mpo" bpmnElement="MP_Orchestrate"><dc:Bounds x="230" y="170" width="140" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="mpp0" bpmnElement="MP_Phase0"><dc:Bounds x="400" y="170" width="140" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="mpf" bpmnElement="MP_Fork"><dc:Bounds x="575" y="185" width="50" height="50"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="mpd" bpmnElement="MP_FetchDocs"><dc:Bounds x="660" y="80" width="140" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="mpe" bpmnElement="MP_FetchExamples"><dc:Bounds x="660" y="170" width="140" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="mpg" bpmnElement="MP_FetchSigs"><dc:Bounds x="660" y="260" width="140" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="mpj" bpmnElement="MP_Join"><dc:Bounds x="830" y="185" width="50" height="50"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="mps2" bpmnElement="MP_Synthesize"><dc:Bounds x="920" y="170" width="140" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="mpdlv" bpmnElement="MP_Deliver"><dc:Bounds x="1090" y="170" width="140" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="mpend" bpmnElement="MP_End"><dc:Bounds x="1260" y="192" width="36" height="36"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="dos" bpmnElement="DO_Start"><dc:Bounds x="160" y="540" width="36" height="36"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="dor" bpmnElement="DO_ReadPlan"><dc:Bounds x="230" y="520" width="140" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="doi" bpmnElement="DO_Impl"><dc:Bounds x="400" y="520" width="140" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="dov" bpmnElement="DO_Verify"><dc:Bounds x="570" y="520" width="140" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="dogw" bpmnElement="DO_GW_Pass" isMarkerVisible="true"><dc:Bounds x="740" y="535" width="50" height="50"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="doap" bpmnElement="DO_AntiPattern"><dc:Bounds x="820" y="520" width="140" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="dorv" bpmnElement="DO_Review"><dc:Bounds x="990" y="520" width="140" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="doc" bpmnElement="DO_Commit"><dc:Bounds x="1160" y="520" width="140" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="dogw2" bpmnElement="DO_GW_More" isMarkerVisible="true"><dc:Bounds x="1330" y="535" width="50" height="50"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="doend" bpmnElement="DO_End"><dc:Bounds x="1410" y="542" width="36" height="36"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="dofail" bpmnElement="DO_Fail"><dc:Bounds x="760" y="640" width="36" height="36"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="ep1" bpmnElement="p1"><di:waypoint x="196" y="208"/><di:waypoint x="230" y="210"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="ep2" bpmnElement="p2"><di:waypoint x="370" y="210"/><di:waypoint x="400" y="210"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="ep3" bpmnElement="p3"><di:waypoint x="540" y="210"/><di:waypoint x="575" y="210"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="ep4" bpmnElement="p4"><di:waypoint x="600" y="185"/><di:waypoint x="600" y="120"/><di:waypoint x="660" y="120"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="ep5" bpmnElement="p5"><di:waypoint x="625" y="210"/><di:waypoint x="660" y="210"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="ep6" bpmnElement="p6"><di:waypoint x="600" y="235"/><di:waypoint x="600" y="300"/><di:waypoint x="660" y="300"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="ep7" bpmnElement="p7"><di:waypoint x="800" y="120"/><di:waypoint x="855" y="120"/><di:waypoint x="855" y="185"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="ep8" bpmnElement="p8"><di:waypoint x="800" y="210"/><di:waypoint x="830" y="210"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="ep9" bpmnElement="p9"><di:waypoint x="800" y="300"/><di:waypoint x="855" y="300"/><di:waypoint x="855" y="235"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="ep10" bpmnElement="p10"><di:waypoint x="880" y="210"/><di:waypoint x="920" y="210"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="ep11" bpmnElement="p11"><di:waypoint x="1060" y="210"/><di:waypoint x="1090" y="210"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="ep12" bpmnElement="p12"><di:waypoint x="1230" y="210"/><di:waypoint x="1260" y="210"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="ed1" bpmnElement="d1"><di:waypoint x="196" y="558"/><di:waypoint x="230" y="560"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="ed2" bpmnElement="d2"><di:waypoint x="370" y="560"/><di:waypoint x="400" y="560"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="ed3" bpmnElement="d3"><di:waypoint x="540" y="560"/><di:waypoint x="570" y="560"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="ed4" bpmnElement="d4"><di:waypoint x="710" y="560"/><di:waypoint x="740" y="560"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="ed5" bpmnElement="d5"><di:waypoint x="790" y="560"/><di:waypoint x="820" y="560"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="ed6" bpmnElement="d6"><di:waypoint x="765" y="585"/><di:waypoint x="765" y="640"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="ed7" bpmnElement="d7"><di:waypoint x="960" y="560"/><di:waypoint x="990" y="560"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="ed8" bpmnElement="d8"><di:waypoint x="1130" y="560"/><di:waypoint x="1160" y="560"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="ed9" bpmnElement="d9"><di:waypoint x="1300" y="560"/><di:waypoint x="1330" y="560"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="ed10" bpmnElement="d10"><di:waypoint x="1355" y="585"/><di:waypoint x="1355" y="660"/><di:waypoint x="300" y="660"/><di:waypoint x="300" y="600"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="ed11" bpmnElement="d11"><di:waypoint x="1380" y="560"/><di:waypoint x="1410" y="560"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="ehandoff" bpmnElement="mf_handoff"><di:waypoint x="1160" y="250"/><di:waypoint x="1160" y="400"/><di:waypoint x="300" y="400"/><di:waypoint x="300" y="520"/></bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

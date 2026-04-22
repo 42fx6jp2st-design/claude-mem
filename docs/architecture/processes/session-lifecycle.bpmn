@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  id="Definitions_SessionLifecycle"
+                  targetNamespace="https://claude-mem.ai/bpmn">
+  <bpmn:process id="Process_SessionLifecycle" name="Claude-Mem Session Lifecycle" isExecutable="false">
+    <bpmn:documentation>
+      Full lifecycle of a Claude Code session from first-run install through session end.
+      Covers the 7 hooks registered in plugin/hooks/hooks.json.
+    </bpmn:documentation>
+
+    <bpmn:startEvent id="Start_ClaudeBoots" name="Claude Code starts"/>
+
+    <bpmn:exclusiveGateway id="GW_FirstRun" name="First run?"/>
+
+    <bpmn:task id="Task_Setup" name="Setup hook&#10;smart-install.js&#10;(Bun + uv)">
+      <bpmn:documentation>Installs Bun and uv if missing. Only runs once.</bpmn:documentation>
+    </bpmn:task>
+
+    <bpmn:task id="Task_SessionStart" name="SessionStart hook&#10;context-generator&#10;(inject past context)">
+      <bpmn:documentation>Builds context from past observations and injects into Claude prompt.</bpmn:documentation>
+    </bpmn:task>
+
+    <bpmn:task id="Task_UserPromptSubmit" name="UserPromptSubmit hook&#10;session-init&#10;(strip private, record)">
+      <bpmn:documentation>Strips privacy tags at the hook edge; records prompt metadata.</bpmn:documentation>
+    </bpmn:task>
+
+    <bpmn:exclusiveGateway id="GW_ToolCall" name="Tool call?"/>
+
+    <bpmn:task id="Task_PreToolUse" name="PreToolUse(Read) hook&#10;file-context&#10;(attach file history)">
+      <bpmn:documentation>Attaches file-edit history for Read tool. Uses tree-sitter for AST summary.</bpmn:documentation>
+    </bpmn:task>
+
+    <bpmn:task id="Task_PostToolUse" name="PostToolUse hook&#10;observation&#10;(queue &amp; store)">
+      <bpmn:documentation>Captures tool observation; queues for AI compression; stores in SQLite + Chroma.</bpmn:documentation>
+    </bpmn:task>
+
+    <bpmn:exclusiveGateway id="GW_MoreWork" name="More prompts?"/>
+
+    <bpmn:task id="Task_Stop" name="Stop hook&#10;summarize&#10;(SDK agent summary)">
+      <bpmn:documentation>Generates session summary via Claude SDK agent.</bpmn:documentation>
+    </bpmn:task>
+
+    <bpmn:task id="Task_SessionEnd" name="SessionEnd hook&#10;session-complete&#10;(flush, cleanup)">
+      <bpmn:documentation>Flushes queues; final cleanup.</bpmn:documentation>
+    </bpmn:task>
+
+    <bpmn:endEvent id="End_SessionDone" name="Session complete"/>
+
+    <bpmn:sequenceFlow id="f1" sourceRef="Start_ClaudeBoots" targetRef="GW_FirstRun"/>
+    <bpmn:sequenceFlow id="f2" sourceRef="GW_FirstRun" targetRef="Task_Setup" name="yes"/>
+    <bpmn:sequenceFlow id="f3" sourceRef="GW_FirstRun" targetRef="Task_SessionStart" name="no"/>
+    <bpmn:sequenceFlow id="f4" sourceRef="Task_Setup" targetRef="Task_SessionStart"/>
+    <bpmn:sequenceFlow id="f5" sourceRef="Task_SessionStart" targetRef="Task_UserPromptSubmit"/>
+    <bpmn:sequenceFlow id="f6" sourceRef="Task_UserPromptSubmit" targetRef="GW_ToolCall"/>
+    <bpmn:sequenceFlow id="f7" sourceRef="GW_ToolCall" targetRef="Task_PreToolUse" name="Read"/>
+    <bpmn:sequenceFlow id="f8" sourceRef="GW_ToolCall" targetRef="Task_PostToolUse" name="other"/>
+    <bpmn:sequenceFlow id="f9" sourceRef="Task_PreToolUse" targetRef="Task_PostToolUse"/>
+    <bpmn:sequenceFlow id="f10" sourceRef="Task_PostToolUse" targetRef="GW_MoreWork"/>
+    <bpmn:sequenceFlow id="f11" sourceRef="GW_MoreWork" targetRef="GW_ToolCall" name="yes"/>
+    <bpmn:sequenceFlow id="f12" sourceRef="GW_MoreWork" targetRef="Task_Stop" name="no (stop)"/>
+    <bpmn:sequenceFlow id="f13" sourceRef="Task_Stop" targetRef="Task_SessionEnd"/>
+    <bpmn:sequenceFlow id="f14" sourceRef="Task_SessionEnd" targetRef="End_SessionDone"/>
+  </bpmn:process>
+
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_SessionLifecycle">
+      <bpmndi:BPMNShape id="s_Start" bpmnElement="Start_ClaudeBoots"><dc:Bounds x="150" y="200" width="36" height="36"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="s_GW1" bpmnElement="GW_FirstRun" isMarkerVisible="true"><dc:Bounds x="240" y="193" width="50" height="50"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="s_Setup" bpmnElement="Task_Setup"><dc:Bounds x="330" y="80" width="130" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="s_SS" bpmnElement="Task_SessionStart"><dc:Bounds x="330" y="178" width="130" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="s_UPS" bpmnElement="Task_UserPromptSubmit"><dc:Bounds x="500" y="178" width="140" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="s_GW2" bpmnElement="GW_ToolCall" isMarkerVisible="true"><dc:Bounds x="680" y="193" width="50" height="50"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="s_Pre" bpmnElement="Task_PreToolUse"><dc:Bounds x="770" y="80" width="140" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="s_Post" bpmnElement="Task_PostToolUse"><dc:Bounds x="770" y="178" width="140" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="s_GW3" bpmnElement="GW_MoreWork" isMarkerVisible="true"><dc:Bounds x="950" y="193" width="50" height="50"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="s_Stop" bpmnElement="Task_Stop"><dc:Bounds x="1040" y="178" width="140" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="s_End" bpmnElement="Task_SessionEnd"><dc:Bounds x="1220" y="178" width="140" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="s_EndEv" bpmnElement="End_SessionDone"><dc:Bounds x="1410" y="200" width="36" height="36"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="e_f1" bpmnElement="f1"><di:waypoint x="186" y="218"/><di:waypoint x="240" y="218"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="e_f2" bpmnElement="f2"><di:waypoint x="265" y="193"/><di:waypoint x="265" y="120"/><di:waypoint x="330" y="120"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="e_f3" bpmnElement="f3"><di:waypoint x="290" y="218"/><di:waypoint x="330" y="218"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="e_f4" bpmnElement="f4"><di:waypoint x="395" y="160"/><di:waypoint x="395" y="178"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="e_f5" bpmnElement="f5"><di:waypoint x="460" y="218"/><di:waypoint x="500" y="218"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="e_f6" bpmnElement="f6"><di:waypoint x="640" y="218"/><di:waypoint x="680" y="218"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="e_f7" bpmnElement="f7"><di:waypoint x="705" y="193"/><di:waypoint x="705" y="120"/><di:waypoint x="770" y="120"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="e_f8" bpmnElement="f8"><di:waypoint x="730" y="218"/><di:waypoint x="770" y="218"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="e_f9" bpmnElement="f9"><di:waypoint x="840" y="160"/><di:waypoint x="840" y="178"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="e_f10" bpmnElement="f10"><di:waypoint x="910" y="218"/><di:waypoint x="950" y="218"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="e_f11" bpmnElement="f11"><di:waypoint x="975" y="243"/><di:waypoint x="975" y="300"/><di:waypoint x="705" y="300"/><di:waypoint x="705" y="243"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="e_f12" bpmnElement="f12"><di:waypoint x="1000" y="218"/><di:waypoint x="1040" y="218"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="e_f13" bpmnElement="f13"><di:waypoint x="1180" y="218"/><di:waypoint x="1220" y="218"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="e_f14" bpmnElement="f14"><di:waypoint x="1360" y="218"/><di:waypoint x="1410" y="218"/></bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

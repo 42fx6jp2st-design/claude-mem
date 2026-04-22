@@ -73,7 +73,7 @@ export function findPreBuiltPluginDirectory(): string | null {
     // Marketplace install location (production — after `npx claude-mem install`)
     path.join(
       process.env.CLAUDE_CONFIG_DIR || path.join(homedir(), '.claude'),
-      'plugins', 'marketplaces', 'thedotmack',
+      'plugins', 'marketplaces', 'hm-consulting',
     ),
     // Development location (relative to project root)
     process.cwd(),
@@ -97,7 +97,7 @@ export function findPluginManifestPath(): string | null {
   const possibleRoots = [
     path.join(
       process.env.CLAUDE_CONFIG_DIR || path.join(homedir(), '.claude'),
-      'plugins', 'marketplaces', 'thedotmack',
+      'plugins', 'marketplaces', 'hm-consulting',
     ),
     process.cwd(),
   ];
@@ -119,7 +119,7 @@ export function findPluginSkillsDirectory(): string | null {
   const possibleRoots = [
     path.join(
       process.env.CLAUDE_CONFIG_DIR || path.join(homedir(), '.claude'),
-      'plugins', 'marketplaces', 'thedotmack',
+      'plugins', 'marketplaces', 'hm-consulting',
     ),
     process.cwd(),
   ];

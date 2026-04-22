@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  id="Definitions_BuildPublish"
+                  targetNamespace="https://claude-mem.ai/bpmn">
+  <bpmn:process id="Process_BuildPublish" name="Build &amp; publish a new release" isExecutable="false">
+    <bpmn:documentation>
+      End-to-end build and publish flow. Triggered by `node scripts/publish.js`.
+      Version bump → sync manifests → build (hooks, viewer, binary) → commit → tag → push
+      → GitHub release → changelog → Discord notify.
+    </bpmn:documentation>
+
+    <bpmn:startEvent id="B_Start" name="Maintainer runs&#10;node scripts/publish.js"/>
+    <bpmn:task id="B_GitCheck" name="Check git status&#10;(clean working tree)"/>
+    <bpmn:exclusiveGateway id="B_GW_Clean" name="tree clean?"/>
+    <bpmn:task id="B_Abort" name="Abort with message"/>
+    <bpmn:endEvent id="B_EndAbort" name="Aborted"/>
+    <bpmn:task id="B_PromptBump" name="Prompt: patch /&#10;minor / major / custom"/>
+    <bpmn:task id="B_SyncManifests" name="sync-plugin-manifests.js&#10;align versions across&#10;package.json, marketplace,&#10;plugin.json"/>
+    <bpmn:parallelGateway id="B_BuildFork"/>
+    <bpmn:task id="B_BuildHooks" name="build-hooks.js&#10;esbuild TS → CJS&#10;worker-service, mcp-server,&#10;context-generator"/>
+    <bpmn:task id="B_BuildViewer" name="build-viewer.js&#10;esbuild React → IIFE&#10;plugin/ui/viewer-bundle.js"/>
+    <bpmn:task id="B_BuildBinary" name="build-worker-binary.js&#10;bun compile&#10;dist/binaries/worker-*.exe"/>
+    <bpmn:parallelGateway id="B_BuildJoin"/>
+    <bpmn:task id="B_Commit" name="git commit&#10;(chore: bump to v{N})"/>
+    <bpmn:task id="B_Tag" name="git tag v{N}"/>
+    <bpmn:task id="B_Push" name="git push&#10;+ push tags"/>
+    <bpmn:task id="B_GhRelease" name="gh release create&#10;(or GitHub UI)"/>
+    <bpmn:task id="B_Changelog" name="generate-changelog.js&#10;incremental append&#10;to CHANGELOG.md"/>
+    <bpmn:exclusiveGateway id="B_GW_Discord" name="Discord webhook&#10;configured?"/>
+    <bpmn:task id="B_Discord" name="discord-release-notify.js&#10;POST to DISCORD_UPDATES_&#10;WEBHOOK"/>
+    <bpmn:task id="B_SyncMarket" name="sync-to-marketplace.sh&#10;push artifact to&#10;marketplace path"/>
+    <bpmn:endEvent id="B_End" name="Released"/>
+
+    <bpmn:sequenceFlow id="b1" sourceRef="B_Start" targetRef="B_GitCheck"/>
+    <bpmn:sequenceFlow id="b2" sourceRef="B_GitCheck" targetRef="B_GW_Clean"/>
+    <bpmn:sequenceFlow id="b3" sourceRef="B_GW_Clean" targetRef="B_PromptBump" name="yes"/>
+    <bpmn:sequenceFlow id="b4" sourceRef="B_GW_Clean" targetRef="B_Abort" name="no"/>
+    <bpmn:sequenceFlow id="b5" sourceRef="B_Abort" targetRef="B_EndAbort"/>
+    <bpmn:sequenceFlow id="b6" sourceRef="B_PromptBump" targetRef="B_SyncManifests"/>
+    <bpmn:sequenceFlow id="b7" sourceRef="B_SyncManifests" targetRef="B_BuildFork"/>
+    <bpmn:sequenceFlow id="b8" sourceRef="B_BuildFork" targetRef="B_BuildHooks"/>
+    <bpmn:sequenceFlow id="b9" sourceRef="B_BuildFork" targetRef="B_BuildViewer"/>
+    <bpmn:sequenceFlow id="b10" sourceRef="B_BuildFork" targetRef="B_BuildBinary"/>
+    <bpmn:sequenceFlow id="b11" sourceRef="B_BuildHooks" targetRef="B_BuildJoin"/>
+    <bpmn:sequenceFlow id="b12" sourceRef="B_BuildViewer" targetRef="B_BuildJoin"/>
+    <bpmn:sequenceFlow id="b13" sourceRef="B_BuildBinary" targetRef="B_BuildJoin"/>
+    <bpmn:sequenceFlow id="b14" sourceRef="B_BuildJoin" targetRef="B_Commit"/>
+    <bpmn:sequenceFlow id="b15" sourceRef="B_Commit" targetRef="B_Tag"/>
+    <bpmn:sequenceFlow id="b16" sourceRef="B_Tag" targetRef="B_Push"/>
+    <bpmn:sequenceFlow id="b17" sourceRef="B_Push" targetRef="B_GhRelease"/>
+    <bpmn:sequenceFlow id="b18" sourceRef="B_GhRelease" targetRef="B_Changelog"/>
+    <bpmn:sequenceFlow id="b19" sourceRef="B_Changelog" targetRef="B_GW_Discord"/>
+    <bpmn:sequenceFlow id="b20" sourceRef="B_GW_Discord" targetRef="B_Discord" name="yes"/>
+    <bpmn:sequenceFlow id="b21" sourceRef="B_GW_Discord" targetRef="B_SyncMarket" name="no"/>
+    <bpmn:sequenceFlow id="b22" sourceRef="B_Discord" targetRef="B_SyncMarket"/>
+    <bpmn:sequenceFlow id="b23" sourceRef="B_SyncMarket" targetRef="B_End"/>
+  </bpmn:process>
+
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_BuildPublish">
+      <bpmndi:BPMNShape id="b_s1" bpmnElement="B_Start"><dc:Bounds x="80" y="280" width="36" height="36"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="b_s2" bpmnElement="B_GitCheck"><dc:Bounds x="160" y="260" width="140" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="b_s3" bpmnElement="B_GW_Clean" isMarkerVisible="true"><dc:Bounds x="330" y="275" width="50" height="50"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="b_s4" bpmnElement="B_Abort"><dc:Bounds x="310" y="380" width="140" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="b_s5" bpmnElement="B_EndAbort"><dc:Bounds x="500" y="402" width="36" height="36"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="b_s6" bpmnElement="B_PromptBump"><dc:Bounds x="410" y="260" width="140" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="b_s7" bpmnElement="B_SyncManifests"><dc:Bounds x="580" y="260" width="160" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="b_s8" bpmnElement="B_BuildFork"><dc:Bounds x="770" y="275" width="50" height="50"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="b_s9" bpmnElement="B_BuildHooks"><dc:Bounds x="850" y="130" width="160" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="b_s10" bpmnElement="B_BuildViewer"><dc:Bounds x="850" y="260" width="160" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="b_s11" bpmnElement="B_BuildBinary"><dc:Bounds x="850" y="390" width="160" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="b_s12" bpmnElement="B_BuildJoin"><dc:Bounds x="1050" y="275" width="50" height="50"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="b_s13" bpmnElement="B_Commit"><dc:Bounds x="1130" y="260" width="140" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="b_s14" bpmnElement="B_Tag"><dc:Bounds x="1290" y="260" width="140" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="b_s15" bpmnElement="B_Push"><dc:Bounds x="1450" y="260" width="140" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="b_s16" bpmnElement="B_GhRelease"><dc:Bounds x="1610" y="260" width="140" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="b_s17" bpmnElement="B_Changelog"><dc:Bounds x="1770" y="260" width="160" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="b_s18" bpmnElement="B_GW_Discord" isMarkerVisible="true"><dc:Bounds x="1950" y="275" width="50" height="50"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="b_s19" bpmnElement="B_Discord"><dc:Bounds x="2030" y="150" width="160" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="b_s20" bpmnElement="B_SyncMarket"><dc:Bounds x="2030" y="260" width="160" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="b_s21" bpmnElement="B_End"><dc:Bounds x="2220" y="282" width="36" height="36"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="b_e1" bpmnElement="b1"><di:waypoint x="116" y="298"/><di:waypoint x="160" y="300"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="b_e2" bpmnElement="b2"><di:waypoint x="300" y="300"/><di:waypoint x="330" y="300"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="b_e3" bpmnElement="b3"><di:waypoint x="380" y="300"/><di:waypoint x="410" y="300"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="b_e4" bpmnElement="b4"><di:waypoint x="355" y="325"/><di:waypoint x="355" y="420"/><di:waypoint x="310" y="420"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="b_e5" bpmnElement="b5"><di:waypoint x="450" y="420"/><di:waypoint x="500" y="420"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="b_e6" bpmnElement="b6"><di:waypoint x="550" y="300"/><di:waypoint x="580" y="300"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="b_e7" bpmnElement="b7"><di:waypoint x="740" y="300"/><di:waypoint x="770" y="300"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="b_e8" bpmnElement="b8"><di:waypoint x="795" y="275"/><di:waypoint x="795" y="170"/><di:waypoint x="850" y="170"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="b_e9" bpmnElement="b9"><di:waypoint x="820" y="300"/><di:waypoint x="850" y="300"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="b_e10" bpmnElement="b10"><di:waypoint x="795" y="325"/><di:waypoint x="795" y="430"/><di:waypoint x="850" y="430"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="b_e11" bpmnElement="b11"><di:waypoint x="1010" y="170"/><di:waypoint x="1075" y="170"/><di:waypoint x="1075" y="275"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="b_e12" bpmnElement="b12"><di:waypoint x="1010" y="300"/><di:waypoint x="1050" y="300"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="b_e13" bpmnElement="b13"><di:waypoint x="1010" y="430"/><di:waypoint x="1075" y="430"/><di:waypoint x="1075" y="325"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="b_e14" bpmnElement="b14"><di:waypoint x="1100" y="300"/><di:waypoint x="1130" y="300"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="b_e15" bpmnElement="b15"><di:waypoint x="1270" y="300"/><di:waypoint x="1290" y="300"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="b_e16" bpmnElement="b16"><di:waypoint x="1430" y="300"/><di:waypoint x="1450" y="300"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="b_e17" bpmnElement="b17"><di:waypoint x="1590" y="300"/><di:waypoint x="1610" y="300"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="b_e18" bpmnElement="b18"><di:waypoint x="1750" y="300"/><di:waypoint x="1770" y="300"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="b_e19" bpmnElement="b19"><di:waypoint x="1930" y="300"/><di:waypoint x="1950" y="300"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="b_e20" bpmnElement="b20"><di:waypoint x="1975" y="275"/><di:waypoint x="1975" y="190"/><di:waypoint x="2030" y="190"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="b_e21" bpmnElement="b21"><di:waypoint x="2000" y="300"/><di:waypoint x="2030" y="300"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="b_e22" bpmnElement="b22"><di:waypoint x="2190" y="190"/><di:waypoint x="2230" y="190"/><di:waypoint x="2230" y="260"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="b_e23" bpmnElement="b23"><di:waypoint x="2190" y="300"/><di:waypoint x="2220" y="300"/></bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>
