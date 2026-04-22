@@ -96,17 +96,13 @@
     "test:context": "bun test tests/context/",
     "test:infra": "bun test tests/infrastructure/",
     "test:server": "bun test tests/server/",
+    "security:audit": "npm audit --audit-level=moderate",
+    "security:audit:json": "npm audit --json",
     "prepublishOnly": "npm run build",
-    "release": "np",
-    "release:patch": "np patch --no-cleanup",
-    "release:minor": "np minor --no-cleanup",
-    "release:major": "np major --no-cleanup"
-  },
-  "np": {
-    "yarn": false,
-    "contents": ".",
-    "testScript": "test",
-    "2fa": false
+    "release": "npm run test && npm run build && npm publish",
+    "release:patch": "npm version patch && npm run release",
+    "release:minor": "npm version minor && npm run release",
+    "release:major": "npm version major && npm run release"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.1.76",
@@ -137,7 +133,6 @@
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
     "esbuild": "^0.27.2",
-    "np": "^11.0.2",
     "tree-sitter-bash": "^0.25.1",
     "tree-sitter-c": "^0.24.1",
     "tree-sitter-cli": "^0.26.5",

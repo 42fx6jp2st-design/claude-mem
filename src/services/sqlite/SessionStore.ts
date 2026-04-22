@@ -70,6 +70,34 @@ export class SessionStore {
     this.addObservationSubagentColumns();
   }
 
+  private normalizeQueryLimit(limit: unknown, max: number = 1000): number | undefined {
+    if (limit === undefined || limit === null) {
+      return undefined;
+    }
+
+    let numeric: number | undefined;
+    if (typeof limit === 'number') {
+      numeric = limit;
+    } else if (typeof limit === 'string') {
+      numeric = Number.parseInt(limit, 10);
+    }
+
+    if (numeric === undefined) {
+      return undefined;
+    }
+
+    if (!Number.isFinite(numeric)) {
+      return undefined;
+    }
+
+    const normalized = Math.trunc(numeric);
+    if (normalized < 1) {
+      return undefined;
+    }
+
+    return Math.min(normalized, max);
+  }
+
   /**
    * Initialize database schema (migration004)
    *
@@ -1450,7 +1478,8 @@ export class SessionStore {
 
     const { orderBy = 'date_desc', limit, project, type, concepts, files } = options;
     const orderClause = orderBy === 'date_asc' ? 'ASC' : 'DESC';
-    const limitClause = limit ? `LIMIT ${limit}` : '';
+    const safeLimit = this.normalizeQueryLimit(limit);
+    const limitClause = safeLimit === undefined ? '' : 'LIMIT ?';
 
     // Build placeholders for IN clause
     const placeholders = ids.map(() => '?').join(',');
@@ -1500,6 +1529,10 @@ export class SessionStore {
     const whereClause = additionalConditions.length > 0
       ? `WHERE id IN (${placeholders}) AND ${additionalConditions.join(' AND ')}`
       : `WHERE id IN (${placeholders})`;
+
+    if (safeLimit !== undefined) {
+      params.push(safeLimit);
+    }
 
     const stmt = this.db.prepare(`
       SELECT *
@@ -2193,7 +2226,8 @@ export class SessionStore {
 
     const { orderBy = 'date_desc', limit, project } = options;
     const orderClause = orderBy === 'date_asc' ? 'ASC' : 'DESC';
-    const limitClause = limit ? `LIMIT ${limit}` : '';
+    const safeLimit = this.normalizeQueryLimit(limit);
+    const limitClause = safeLimit === undefined ? '' : 'LIMIT ?';
     const placeholders = ids.map(() => '?').join(',');
     const params: any[] = [...ids];
 
@@ -2202,6 +2236,7 @@ export class SessionStore {
       ? `WHERE id IN (${placeholders}) AND project = ?`
       : `WHERE id IN (${placeholders})`;
     if (project) params.push(project);
+    if (safeLimit !== undefined) params.push(safeLimit);
 
     const stmt = this.db.prepare(`
       SELECT * FROM session_summaries
@@ -2225,13 +2260,15 @@ export class SessionStore {
 
     const { orderBy = 'date_desc', limit, project } = options;
     const orderClause = orderBy === 'date_asc' ? 'ASC' : 'DESC';
-    const limitClause = limit ? `LIMIT ${limit}` : '';
+    const safeLimit = this.normalizeQueryLimit(limit);
+    const limitClause = safeLimit === undefined ? '' : 'LIMIT ?';
     const placeholders = ids.map(() => '?').join(',');
     const params: any[] = [...ids];
 
     // Apply project filter
     const projectFilter = project ? 'AND s.project = ?' : '';
     if (project) params.push(project);
+    if (safeLimit !== undefined) params.push(safeLimit);
 
     const stmt = this.db.prepare(`
       SELECT

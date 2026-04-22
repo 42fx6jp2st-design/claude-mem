@@ -96,6 +96,24 @@ export class SearchManager {
     return [];
   }
 
+  private toBoundedInt(value: unknown, min: number, max: number): number | undefined {
+    if (value === undefined || value === null || value === '') {
+      return undefined;
+    }
+
+    const numeric = typeof value === 'number' ? value : Number.parseInt(String(value), 10);
+    if (!Number.isFinite(numeric)) {
+      return undefined;
+    }
+
+    const normalized = Math.trunc(numeric);
+    if (normalized < min) {
+      return undefined;
+    }
+
+    return Math.min(normalized, max);
+  }
+
   /**
    * Helper to normalize query parameters from URL-friendly format
    * Converts comma-separated strings to arrays and flattens date params
@@ -150,6 +168,27 @@ export class SearchManager {
       normalized.isFolder = true;
     } else if (normalized.isFolder === 'false') {
       normalized.isFolder = false;
+    }
+
+    const parsedLimit = this.toBoundedInt(normalized.limit, 1, 1000);
+    if (parsedLimit !== undefined) {
+      normalized.limit = parsedLimit;
+    } else {
+      delete normalized.limit;
+    }
+
+    const parsedDepthBefore = this.toBoundedInt(normalized.depth_before, 1, 200);
+    if (parsedDepthBefore !== undefined) {
+      normalized.depth_before = parsedDepthBefore;
+    } else {
+      delete normalized.depth_before;
+    }
+
+    const parsedDepthAfter = this.toBoundedInt(normalized.depth_after, 1, 200);
+    if (parsedDepthAfter !== undefined) {
+      normalized.depth_after = parsedDepthAfter;
+    } else {
+      delete normalized.depth_after;
     }
 
     return normalized;
@@ -448,9 +487,10 @@ export class SearchManager {
    * Tool handler: timeline
    */
   async timeline(args: any): Promise<any> {
-    const { anchor, query, depth_before, depth_after, project } = args;
-    const depthBefore = depth_before != null ? Number(depth_before) : 10;
-    const depthAfter = depth_after != null ? Number(depth_after) : 10;
+    const normalized = this.normalizeParams(args);
+    const { anchor, query, depth_before, depth_after, project } = normalized;
+    const depthBefore = depth_before ?? 10;
+    const depthAfter = depth_after ?? 10;
     const cwd = process.cwd();
 
     // Validate: must provide either anchor or query, not both
@@ -1466,8 +1506,9 @@ export class SearchManager {
    * Tool handler: get_recent_context
    */
   async getRecentContext(args: any): Promise<any> {
-    const project = args.project || getProjectContext(process.cwd()).primary;
-    const limit = args.limit || 3;
+    const normalized = this.normalizeParams(args);
+    const project = normalized.project || getProjectContext(process.cwd()).primary;
+    const limit = normalized.limit ?? 3;
 
     const sessions = this.sessionStore.getRecentSessionsWithStatus(project, limit);
 
@@ -1594,9 +1635,10 @@ export class SearchManager {
    * Tool handler: get_context_timeline
    */
   async getContextTimeline(args: any): Promise<any> {
-    const { anchor, depth_before, depth_after, project } = args;
-    const depthBefore = depth_before != null ? Number(depth_before) : 10;
-    const depthAfter = depth_after != null ? Number(depth_after) : 10;
+    const normalized = this.normalizeParams(args);
+    const { anchor, depth_before, depth_after, project } = normalized;
+    const depthBefore = depth_before ?? 10;
+    const depthAfter = depth_after ?? 10;
     const cwd = process.cwd();
     let anchorEpoch: number;
     let anchorId: string | number = anchor;
@@ -1808,9 +1850,12 @@ export class SearchManager {
    * Tool handler: get_timeline_by_query
    */
   async getTimelineByQuery(args: any): Promise<any> {
-    const { query, mode = 'auto', depth_before, depth_after, limit = 5, project } = args;
-    const depthBefore = depth_before != null ? Number(depth_before) : 10;
-    const depthAfter = depth_after != null ? Number(depth_after) : 10;
+    const normalized = this.normalizeParams(args);
+    const { query, project } = normalized;
+    const mode = normalized.mode === 'interactive' ? 'interactive' : 'auto';
+    const depthBefore = normalized.depth_before ?? 10;
+    const depthAfter = normalized.depth_after ?? 10;
+    const limit = normalized.limit ?? 5;
     const cwd = process.cwd();
 
     // Step 1: Search for observations

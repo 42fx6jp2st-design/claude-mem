@@ -6,6 +6,24 @@ import { logger } from '../../../utils/logger.js';
 import type { SessionSummaryRecord } from '../../../types/database.js';
 import type { SessionSummary, GetByIdsOptions } from './types.js';
 
+function normalizeQueryLimit(limit: unknown, max: number = 1000): number | undefined {
+  if (limit === undefined || limit === null) {
+    return undefined;
+  }
+
+  const numeric = typeof limit === 'number' ? limit : Number.parseInt(String(limit), 10);
+  if (!Number.isFinite(numeric)) {
+    return undefined;
+  }
+
+  const normalized = Math.trunc(numeric);
+  if (normalized < 1) {
+    return undefined;
+  }
+
+  return Math.min(normalized, max);
+}
+
 /**
  * Get summary for a specific session
  *
@@ -66,7 +84,8 @@ export function getSummariesByIds(
 
   const { orderBy = 'date_desc', limit, project } = options;
   const orderClause = orderBy === 'date_asc' ? 'ASC' : 'DESC';
-  const limitClause = limit ? `LIMIT ${limit}` : '';
+  const safeLimit = normalizeQueryLimit(limit);
+  const limitClause = safeLimit !== undefined ? 'LIMIT ?' : '';
   const placeholders = ids.map(() => '?').join(',');
   const params: (number | string)[] = [...ids];
 
@@ -75,6 +94,7 @@ export function getSummariesByIds(
     ? `WHERE id IN (${placeholders}) AND project = ?`
     : `WHERE id IN (${placeholders})`;
   if (project) params.push(project);
+  if (safeLimit !== undefined) params.push(safeLimit);
 
   const stmt = db.prepare(`
     SELECT * FROM session_summaries

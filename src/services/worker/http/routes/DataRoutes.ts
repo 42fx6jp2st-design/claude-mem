@@ -162,8 +162,23 @@ export class DataRoutes extends BaseRouteHandler {
       return;
     }
 
+    if (orderBy && orderBy !== 'date_desc' && orderBy !== 'date_asc') {
+      this.badRequest(res, 'orderBy must be "date_desc" or "date_asc"');
+      return;
+    }
+
+    let safeLimit: number | undefined;
+    if (limit !== undefined) {
+      const parsedLimit = Number.parseInt(String(limit), 10);
+      if (!Number.isFinite(parsedLimit) || parsedLimit < 1) {
+        this.badRequest(res, 'limit must be a positive integer');
+        return;
+      }
+      safeLimit = Math.min(parsedLimit, 1000);
+    }
+
     const store = this.dbManager.getSessionStore();
-    const observations = store.getObservationsByIds(ids, { orderBy, limit, project });
+    const observations = store.getObservationsByIds(ids, { orderBy, limit: safeLimit, project });
 
     res.json(observations);
   });

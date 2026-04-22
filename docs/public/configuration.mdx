@@ -19,7 +19,10 @@ Settings are managed in `~/.claude-mem/settings.json`. The file is auto-created 
 | `CLAUDE_MEM_CONTEXT_OBSERVATIONS` | `50`                        | Number of observations to inject      |
 | `CLAUDE_MEM_WORKER_PORT`      | `37777`                         | Worker service port                   |
 | `CLAUDE_MEM_WORKER_HOST`      | `127.0.0.1`                     | Worker service host address           |
+| `CLAUDE_MEM_API_TOKEN`        | —                               | Environment variable for API auth on mutating routes when host is non-loopback |
 | `CLAUDE_MEM_SKIP_TOOLS`       | `ListMcpResourcesTool,SlashCommand,Skill,TodoWrite,AskUserQuestion` | Comma-separated tools to exclude from observations |
+
+When `CLAUDE_MEM_WORKER_HOST` is configured to a non-loopback address, non-local mutating `/api/*` requests require `CLAUDE_MEM_API_TOKEN` via either the `Authorization: Bearer <token>` header or the `x-claude-mem-token` header.
 
 ### Gemini Provider Settings
 

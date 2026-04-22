@@ -7,6 +7,24 @@ import { logger } from '../../../utils/logger.js';
 import type { UserPromptRecord, LatestPromptResult } from '../../../types/database.js';
 import type { RecentUserPromptResult, PromptWithProject, GetPromptsByIdsOptions } from './types.js';
 
+function normalizeQueryLimit(limit: unknown, max: number = 1000): number | undefined {
+  if (limit === undefined || limit === null) {
+    return undefined;
+  }
+
+  const numeric = typeof limit === 'number' ? limit : Number.parseInt(String(limit), 10);
+  if (!Number.isFinite(numeric)) {
+    return undefined;
+  }
+
+  const normalized = Math.trunc(numeric);
+  if (normalized < 1) {
+    return undefined;
+  }
+
+  return Math.min(normalized, max);
+}
+
 /**
  * Get user prompt by session ID and prompt number
  * @returns The prompt text, or null if not found
@@ -146,12 +164,14 @@ export function getUserPromptsByIds(
 
   const { orderBy = 'date_desc', limit, project } = options;
   const orderClause = orderBy === 'date_asc' ? 'ASC' : 'DESC';
-  const limitClause = limit ? `LIMIT ${limit}` : '';
+  const safeLimit = normalizeQueryLimit(limit);
+  const limitClause = safeLimit !== undefined ? 'LIMIT ?' : '';
   const placeholders = ids.map(() => '?').join(',');
   const params: (number | string)[] = [...ids];
 
   const projectFilter = project ? 'AND s.project = ?' : '';
   if (project) params.push(project);
+  if (safeLimit !== undefined) params.push(safeLimit);
 
   const stmt = db.prepare(`
     SELECT

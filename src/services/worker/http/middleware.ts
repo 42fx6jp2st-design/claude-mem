@@ -7,9 +7,57 @@
 
 import express, { Request, Response, NextFunction, RequestHandler } from 'express';
 import cors from 'cors';
-import path from 'path';
+import path from 'node:path';
+import { timingSafeEqual } from 'node:crypto';
 import { getPackageRoot } from '../../../shared/paths.js';
+import { getWorkerHost } from '../../../shared/worker-utils.js';
 import { logger } from '../../../utils/logger.js';
+
+const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+const LOOPBACK_HOSTS = new Set(['127.0.0.1', '::1', 'localhost']);
+
+function normalizeAddress(address: string | null | undefined): string {
+  if (!address) return '';
+  return address.replace(/^::ffff:/, '').trim().toLowerCase();
+}
+
+function isLoopbackAddress(address: string | null | undefined): boolean {
+  const normalized = normalizeAddress(address);
+  return LOOPBACK_HOSTS.has(normalized);
+}
+
+function isLoopbackRequest(req: Request): boolean {
+  const remoteAddress = req.socket.remoteAddress ?? req.ip ?? '';
+  return isLoopbackAddress(remoteAddress);
+}
+
+function getConfiguredApiToken(): string | null {
+  const token = process.env.CLAUDE_MEM_API_TOKEN?.trim();
+  return token && token.length > 0 ? token : null;
+}
+
+function getProvidedApiToken(req: Request): string | null {
+  const headerToken = req.header('x-claude-mem-token')?.trim();
+  if (headerToken) return headerToken;
+
+  const authorization = req.header('authorization')?.trim();
+  if (!authorization) return null;
+
+  const bearerRegex = /^Bearer\s+(.+)$/i;
+  const match = bearerRegex.exec(authorization);
+  return match?.[1]?.trim() ?? null;
+}
+
+function tokensMatch(provided: string, expected: string): boolean {
+  const providedBuffer = Buffer.from(provided);
+  const expectedBuffer = Buffer.from(expected);
+
+  if (providedBuffer.length !== expectedBuffer.length) {
+    return false;
+  }
+
+  return timingSafeEqual(providedBuffer, expectedBuffer);
+}
 
 /**
  * Create all middleware for the worker service
@@ -78,6 +126,66 @@ export function createMiddleware(
 
   middlewares.push(rateLimiter);
 
+  // Require API token for mutating /api routes when not operating in local-only mode.
+  // Local development keeps friction low by allowing loopback-only mutations without a token.
+  const mutationAuthGuard: RequestHandler = (req, res, next) => {
+    const method = req.method.toUpperCase();
+    if (!MUTATING_METHODS.has(method) || !req.path.startsWith('/api')) {
+      next();
+      return;
+    }
+
+    const workerHost = getWorkerHost();
+    const hostIsLoopback = isLoopbackAddress(workerHost);
+    const localRequest = isLoopbackRequest(req);
+    const expectedToken = getConfiguredApiToken();
+
+    // If host is exposed beyond loopback, reject non-local mutating requests unless auth is configured.
+    // Keep local requests available so operators can recover configuration.
+    if (!hostIsLoopback && !expectedToken) {
+      if (localRequest) {
+        next();
+        return;
+      }
+
+      logger.error('SECURITY', 'Mutating API request blocked: exposed host without CLAUDE_MEM_API_TOKEN', {
+        endpoint: req.path,
+        method,
+        workerHost
+      });
+      res.status(503).json({
+        error: 'Security configuration required',
+        message: 'Set CLAUDE_MEM_API_TOKEN when CLAUDE_MEM_WORKER_HOST is non-loopback.'
+      });
+      return;
+    }
+
+    if (hostIsLoopback && localRequest) {
+      next();
+      return;
+    }
+
+    const providedToken = getProvidedApiToken(req);
+    if (!expectedToken || !providedToken || !tokensMatch(providedToken, expectedToken)) {
+      const clientIp = normalizeAddress(req.socket.remoteAddress ?? req.ip ?? '');
+      logger.warn('SECURITY', 'Mutating API request denied due to missing/invalid token', {
+        endpoint: req.path,
+        method,
+        workerHost,
+        clientIp
+      });
+      res.status(401).json({
+        error: 'Unauthorized',
+        message: 'Missing or invalid API token'
+      });
+      return;
+    }
+
+    next();
+  };
+
+  middlewares.push(mutationAuthGuard);
+
   // HTTP request/response logging
   middlewares.push((req: Request, res: Response, next: NextFunction) => {
     // Skip logging for static assets, health checks, and polling endpoints
@@ -119,12 +227,8 @@ export function createMiddleware(
  * Used for admin endpoints that should not be exposed when binding to 0.0.0.0
  */
 export function requireLocalhost(req: Request, res: Response, next: NextFunction): void {
-  const clientIp = req.ip || req.connection.remoteAddress || '';
-  const isLocalhost =
-    clientIp === '127.0.0.1' ||
-    clientIp === '::1' ||
-    clientIp === '::ffff:127.0.0.1' ||
-    clientIp === 'localhost';
+  const clientIp = normalizeAddress(req.socket.remoteAddress ?? req.ip ?? '');
+  const isLocalhost = isLoopbackAddress(clientIp);
 
   if (!isLocalhost) {
     logger.warn('SECURITY', 'Admin endpoint access denied - not localhost', {

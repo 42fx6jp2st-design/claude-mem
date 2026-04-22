@@ -65,6 +65,24 @@ export class SearchOrchestrator {
     this.timelineBuilder = new TimelineBuilder();
   }
 
+  private toBoundedInt(value: unknown, min: number, max: number): number | undefined {
+    if (value === undefined || value === null || value === '') {
+      return undefined;
+    }
+
+    const numeric = typeof value === 'number' ? value : Number.parseInt(String(value), 10);
+    if (!Number.isFinite(numeric)) {
+      return undefined;
+    }
+
+    const normalized = Math.trunc(numeric);
+    if (normalized < min) {
+      return undefined;
+    }
+
+    return Math.min(normalized, max);
+  }
+
   /**
    * Main search entry point
    */
@@ -276,6 +294,27 @@ export class SearchOrchestrator {
       };
       delete normalized.dateStart;
       delete normalized.dateEnd;
+    }
+
+    const parsedLimit = this.toBoundedInt(normalized.limit, 1, 1000);
+    if (parsedLimit !== undefined) {
+      normalized.limit = parsedLimit;
+    } else {
+      delete normalized.limit;
+    }
+
+    const parsedDepthBefore = this.toBoundedInt(normalized.depth_before, 1, 200);
+    if (parsedDepthBefore !== undefined) {
+      normalized.depth_before = parsedDepthBefore;
+    } else {
+      delete normalized.depth_before;
+    }
+
+    const parsedDepthAfter = this.toBoundedInt(normalized.depth_after, 1, 200);
+    if (parsedDepthAfter !== undefined) {
+      normalized.depth_after = parsedDepthAfter;
+    } else {
+      delete normalized.depth_after;
     }
 
     return normalized;
