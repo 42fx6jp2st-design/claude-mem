@@ -6,5 +6,8 @@
       "Read(./node_modules/**)",
       "Read(./.DS_Store)"
     ]
+  },
+  "enabledPlugins": {
+    "github@claude-plugins-official": true
   }
 }
