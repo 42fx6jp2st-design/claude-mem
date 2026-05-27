@@ -8,7 +8,7 @@ Claude-mem is a Claude Code plugin providing persistent memory across sessions. 
 
 **Hooks** (`src/hooks/*.ts`) - TypeScript → ESM, built to `plugin/scripts/*-hook.js`
 
-**Worker Service** (`src/services/worker-service.ts`) - Express API on port 37777, Bun-managed, handles AI processing asynchronously
+**Worker Service** (`src/services/worker-service.ts`) - Express API, Bun-managed, handles AI processing asynchronously. Default port is `37700 + (uid % 100)` (computed in [SettingsDefaultsManager.ts](src/shared/SettingsDefaultsManager.ts)); override with `CLAUDE_MEM_WORKER_PORT`. Check `~/.claude-mem/supervisor.json` for the live port.
 
 **Database** (`src/services/sqlite/`) - SQLite3 at `~/.claude-mem/claude-mem.db`
 
@@ -20,7 +20,7 @@ Claude-mem is a Claude Code plugin providing persistent memory across sessions. 
 
 **Chroma** (`src/services/sync/ChromaSync.ts`) - Vector embeddings for semantic search
 
-**Viewer UI** (`src/ui/viewer/`) - React interface at http://localhost:37777, built to `plugin/ui/viewer.html`
+**Viewer UI** (`src/ui/viewer/`) - React interface served by the Worker on the same port (see above), built to `plugin/ui/viewer.html`
 
 ## Privacy Tags
 - `<private>content</private>` - User-level privacy control (manual, prevents storage)
