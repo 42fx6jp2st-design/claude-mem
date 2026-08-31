@@ -1,0 +1,16 @@
+{
+  "//": "Scoped declaration-emit for the public library entry only. The full project does not typecheck under tsc (the React viewer needs the DOM lib, and some utils pass logger components outside the union), so we compile ONLY the SDK subgraph reachable from src/index.ts and emit .d.ts best-effort (noEmitOnError:false). Wired into the build via scripts/build-hooks.js.",
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "emitDeclarationOnly": true,
+    "declaration": true,
+    "declarationMap": false,
+    "sourceMap": false,
+    "noEmitOnError": false,
+    "outDir": "./dist",
+    "rootDir": "./src"
+  },
+  "include": ["src/index.ts", "src/sdk/index.ts", "src/sdk/parser.ts", "src/sdk/prompts.ts"],
+  "exclude": ["node_modules", "dist", "tests"]
+}

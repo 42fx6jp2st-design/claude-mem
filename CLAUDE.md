@@ -6,7 +6,7 @@ Claude-mem is a Claude Code plugin providing persistent memory across sessions. 
 
 **5 Lifecycle Hooks**: SessionStart → UserPromptSubmit → PostToolUse → Summary → SessionEnd
 
-**Hooks** (`src/hooks/*.ts`) - TypeScript → ESM, built to `plugin/scripts/*-hook.js`
+**Hooks** - Hook logic is dispatched through `src/cli/hook-command.ts` and the per-event handlers in `src/cli/handlers/*.ts`. (`src/hooks/` contains only the shared `hook-response.ts` helper, not the lifecycle hooks.)
 
 **Worker Service** (`src/services/worker-service.ts`) - Express API, Bun-managed, handles AI processing asynchronously. Default port is `37700 + (uid % 100)` (computed in [SettingsDefaultsManager.ts](src/shared/SettingsDefaultsManager.ts)); override with `CLAUDE_MEM_WORKER_PORT`. Check `~/.claude-mem/supervisor.json` for the live port.
 
@@ -75,14 +75,14 @@ Claude-mem is designed with a clean separation between open-source core function
 
 **Open-Source Core** (this repository):
 
-- All worker API endpoints on localhost:37777 remain fully open and accessible
+- All worker API endpoints on the worker's localhost port (`37700 + uid%100`) remain fully open and accessible
 - Pro features are headless - no proprietary UI elements in this codebase
 - Pro integration points are minimal: settings for license keys, tunnel provisioning logic
 - The architecture ensures Pro features extend rather than replace core functionality
 
 **Pro Features** (coming soon, external):
 
-- Enhanced UI (Memory Stream) connects to the same localhost:37777 endpoints as the open viewer
+- Enhanced UI (Memory Stream) connects to the same localhost worker endpoints as the open viewer
 - Additional features like advanced filtering, timeline scrubbing, and search tools
 - Access gated by license validation, not by modifying core endpoints
 - Users without Pro licenses continue using the full open-source viewer UI without limitation

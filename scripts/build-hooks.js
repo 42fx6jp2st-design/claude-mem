@@ -335,6 +335,56 @@ async function buildHooks() {
     const npxCliStats = fs.statSync(`${npxCliOutDir}/index.js`);
     console.log(`✓ npx-cli built (${(npxCliStats.size / 1024).toFixed(2)} KB)`);
 
+    // Build library entry points (dist/index.js + dist/sdk/index.js) so the
+    // published package's `exports` resolve for `import 'claude-mem'` and
+    // `import 'claude-mem/sdk'`. Relative source is bundled; npm dependencies
+    // stay external (installed via the package's own dependencies).
+    console.log(`\n🔧 Building library entry (index + sdk)...`);
+    await build({
+      entryPoints: ['src/index.ts', 'src/sdk/index.ts'],
+      bundle: true,
+      platform: 'node',
+      target: 'node18',
+      format: 'esm',
+      outdir: 'dist',
+      outbase: 'src',
+      packages: 'external',
+      logLevel: 'error',
+      define: {
+        '__DEFAULT_PACKAGE_VERSION__': `"${version}"`
+      },
+    });
+    const libEntryStats = fs.statSync('dist/index.js');
+    console.log(`✓ library entry built (${(libEntryStats.size / 1024).toFixed(2)} KB)`);
+
+    // Emit TypeScript declarations for the library entry. The full project does
+    // not typecheck under tsc (the React viewer needs the DOM lib; a few utils
+    // pass logger components outside the union), so declaration emit is scoped
+    // to the SDK subgraph via tsconfig.types.json and tolerates a non-zero exit
+    // — .d.ts are still written (noEmitOnError:false in that config).
+    console.log(`\n🔧 Emitting type declarations (tsconfig.types.json)...`);
+    await new Promise((resolve) => {
+      const tscBuild = spawn('npx', ['tsc', '-p', 'tsconfig.types.json'], {
+        stdio: 'inherit',
+        shell: process.platform === 'win32'
+      });
+      tscBuild.on('exit', (code) => {
+        if (code !== 0) {
+          console.warn(`  ⚠ tsc reported issues (exit ${code}) — declarations emitted best-effort`);
+        }
+        resolve();
+      });
+      tscBuild.on('error', (err) => {
+        console.warn(`  ⚠ Could not run tsc for declarations: ${err.message}`);
+        resolve();
+      });
+    });
+    if (fs.existsSync('dist/index.d.ts')) {
+      console.log('✓ type declarations emitted (dist/index.d.ts)');
+    } else {
+      console.warn('  ⚠ dist/index.d.ts missing — library types may not resolve');
+    }
+
     // Build OpenClaw plugin (self-contained, only Node builtins external)
     if (fs.existsSync('openclaw/src/index.ts')) {
       console.log(`\n🔧 Building OpenClaw plugin...`);
