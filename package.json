@@ -132,7 +132,7 @@
     "@types/node": "^20.0.0",
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
-    "esbuild": "^0.27.2",
+    "esbuild": "^0.28.2",
     "tree-sitter-bash": "^0.25.1",
     "tree-sitter-c": "^0.24.1",
     "tree-sitter-cli": "^0.26.5",
